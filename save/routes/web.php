@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('pantry.index');
 });
 
 Route::middleware('guest')->group(function () {
@@ -20,4 +20,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/escanear-alimentos/analisar', [\App\Http\Controllers\AlimentoScannerController::class, 'analyze'])
         ->middleware('throttle:10,1')->name('foods.analyze');
     Route::post('/alimentos', [\App\Http\Controllers\AlimentoScannerController::class, 'store'])->name('foods.store');
+    Route::get('/receitas', [\App\Http\Controllers\RecipeController::class, 'index'])->name('recipes.index');
+    Route::post('/receitas/sugestoes-ia', [\App\Http\Controllers\RecipeController::class, 'generate'])
+        ->middleware('throttle:5,1')->name('recipes.generate');
 });
