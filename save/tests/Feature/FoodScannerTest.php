@@ -31,7 +31,7 @@ class FoodScannerTest extends TestCase
         $this->get(route('recipes.index'))
             ->assertOk()
             ->assertSee('Receitas para sua despensa')
-            ->assertSee('OPENAI_API_KEY');
+            ->assertSee('Compatíveis com sua cozinha');
     }
 
     public function test_user_can_analyze_image_and_confirm_foods(): void
