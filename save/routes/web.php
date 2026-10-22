@@ -3,7 +3,9 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('pantry.index');
+    return auth()->check()
+        ? redirect()->route('pantry.index')
+        : view('auth.login');
 });
 
 Route::middleware('guest')->group(function () {
