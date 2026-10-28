@@ -4,9 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Alimento;
 use App\Models\User;
+use App\Services\OpenCvImageProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Mockery;
+use Mockery\MockInterface;
+use RuntimeException;
 use Tests\TestCase;
 
 class FoodScannerTest extends TestCase
@@ -18,6 +22,18 @@ class FoodScannerTest extends TestCase
         $this->get(route('foods.scan'))->assertRedirect(route('login'));
     }
 
+    public function test_login_blocks_attempts_after_five_invalid_credentials(): void
+    {
+        $email = User::factory()->create()->email;
+        $credentials = ['email' => $email, 'password' => 'incorrect-password'];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post(route('login'), $credentials)->assertSessionHasErrors('email');
+        }
+
+        $this->post(route('login'), $credentials)->assertTooManyRequests();
+    }
+
     public function test_authenticated_user_can_render_scanner_and_recipe_pages(): void
     {
         $user = User::factory()->create();
@@ -25,7 +41,8 @@ class FoodScannerTest extends TestCase
         $this->actingAs($user)
             ->get(route('foods.scan'))
             ->assertOk()
-            ->assertSee('Identificar alimentos com IA')
+            ->assertSee('Processar imagem com OpenCV')
+            ->assertSee('armazenada temporariamente em área privada')
             ->assertSee('Minha despensa');
 
         $this->get(route('recipes.index'))
@@ -36,36 +53,36 @@ class FoodScannerTest extends TestCase
 
     public function test_user_can_analyze_image_and_confirm_foods(): void
     {
-        config(['services.openai.key' => 'test-key']);
-        Http::preventStrayRequests();
-        Http::fake([
-            'api.openai.com/v1/responses' => Http::response([
-                'output' => [[
-                    'type' => 'message',
-                    'content' => [[
-                        'type' => 'output_text',
-                        'text' => json_encode(['items' => [[
-                            'name' => 'Banana',
-                            'category' => 'Frutas',
-                            'estimated_quantity' => 3,
-                            'packaging' => null,
-                            'confidence' => 0.91,
-                            'expiration_date' => null,
-                            'barcode' => null,
-                            'label_text' => null,
-                        ]]], JSON_THROW_ON_ERROR),
-                    ]],
-                ]],
-            ]),
-        ]);
+        $this->mock(OpenCvImageProcessingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('process')
+                ->once()
+                ->with(Mockery::type(UploadedFile::class))
+                ->andReturn([
+                    'image' => [
+                        'width' => 640,
+                        'height' => 480,
+                        'channels' => 3,
+                        'format' => 'jpg',
+                        'size_bytes' => 1200,
+                    ],
+                    'processing' => [
+                        'engine' => 'OpenCV',
+                        'version' => '5.0.0',
+                        'recognized_foods' => false,
+                    ],
+                ]);
+        });
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->postJson(route('foods.analyze'), ['image' => UploadedFile::fake()->image('banana.jpg')])
             ->assertOk()
-            ->assertJsonPath('items.0.name', 'Banana');
-
-        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.openai.com/v1/responses');
+            ->assertJsonPath('items', [])
+            ->assertJsonPath('image.width', 640)
+            ->assertJsonPath('image.height', 480)
+            ->assertJsonPath('processing.engine', 'OpenCV')
+            ->assertJsonPath('processing.recognized_foods', false)
+            ->assertJsonPath('message', 'Imagem processada com OpenCV. O reconhecimento automático de alimentos ainda não está disponível; adicione os itens manualmente.');
 
         $this->postJson(route('foods.store'), ['items' => [[
             'name' => 'Banana prata',
@@ -100,30 +117,19 @@ class FoodScannerTest extends TestCase
             ->assertJsonValidationErrors('image');
     }
 
-    public function test_analysis_explains_when_the_api_key_is_missing(): void
+    public function test_analysis_hides_python_process_errors_from_the_client(): void
     {
-        config(['services.openai.key' => null]);
-
-        $this->actingAs(User::factory()->create())
-            ->postJson(route('foods.analyze'), ['image' => UploadedFile::fake()->image('food.png')])
-            ->assertServiceUnavailable()
-            ->assertJsonPath('code', 'ai_not_configured');
-    }
-
-    public function test_analysis_rejects_an_invalid_ai_response(): void
-    {
-        config(['services.openai.key' => 'test-key']);
-        Http::preventStrayRequests();
-        Http::fake([
-            'api.openai.com/v1/responses' => Http::response([
-                'output' => [['type' => 'message', 'content' => [['type' => 'output_text', 'text' => '{invalid']]]],
-            ]),
-        ]);
+        $this->mock(OpenCvImageProcessingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('process')
+                ->once()
+                ->andThrow(new RuntimeException('Não foi possível processar a imagem. Confira o serviço OpenCV e tente novamente.'));
+        });
 
         $this->actingAs(User::factory()->create())
             ->postJson(route('foods.analyze'), ['image' => UploadedFile::fake()->image('food.png')])
             ->assertStatus(502)
-            ->assertJsonPath('message', 'A IA retornou dados inválidos. Tente novamente.');
+            ->assertJsonPath('message', 'Não foi possível processar a imagem. Confira o serviço OpenCV e tente novamente.')
+            ->assertDontSee('storage');
     }
 
     public function test_recipe_ai_endpoint_explains_when_the_api_key_is_missing(): void

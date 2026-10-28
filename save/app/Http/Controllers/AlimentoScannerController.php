@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Alimento;
-use App\Services\FoodImageRecognitionService;
+use App\Services\OpenCvImageProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +19,7 @@ class AlimentoScannerController extends Controller
         return view('foods.scan', compact('foods'));
     }
 
-    public function analyze(Request $request, FoodImageRecognitionService $recognition): JsonResponse
+    public function analyze(Request $request, OpenCvImageProcessingService $processor): JsonResponse
     {
         $validated = $request->validate([
             'image' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
@@ -30,17 +30,14 @@ class AlimentoScannerController extends Controller
             'image.max' => 'A imagem deve ter no máximo 10 MB.',
         ]);
 
-        if (! filled(config('services.openai.key'))) {
-            return response()->json([
-                'message' => 'A identificação por IA não está configurada. Adicione OPENAI_API_KEY ao .env. Você ainda pode cadastrar os alimentos manualmente.',
-                'code' => 'ai_not_configured',
-            ], 503);
-        }
-
         try {
+            $result = $processor->process($validated['image']);
+
             return response()->json([
-                'items' => $recognition->analyze($validated['image']),
-                'message' => 'Revise os dados estimados e confirme antes de salvar.',
+                'items' => [],
+                'image' => $result['image'],
+                'processing' => $result['processing'],
+                'message' => 'Imagem processada com OpenCV. O reconhecimento automático de alimentos ainda não está disponível; adicione os itens manualmente.',
             ]);
         } catch (RuntimeException $exception) {
             return response()->json(['message' => $exception->getMessage()], 502);

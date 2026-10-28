@@ -235,12 +235,19 @@ if (scanner) {
 			if (!response.ok) {
 				throw new Error(result.message ?? Object.values(result.errors ?? {}).flat()[0] ?? 'Não foi possível analisar esta imagem.');
 			}
+			if (!Array.isArray(result.items)) {
+				throw new Error('O serviço de processamento retornou uma resposta inválida.');
+			}
 
 			clearItems();
 			result.items.forEach((item) => addItem(item, item.confidence, item.label_text));
 			analyzedFile = selectedFile;
 			if (result.items.length === 0) {
-				showError('Nenhum alimento foi identificado. Você pode adicionar os itens manualmente.');
+				successBox.textContent = result.message;
+				if (result.image?.width && result.image?.height) {
+					successBox.textContent += ` (${result.image.width} × ${result.image.height} px)`;
+				}
+				successBox.hidden = false;
 			}
 		} catch (error) {
 			showError(error.message || 'Falha de comunicação. Tente novamente ou cadastre manualmente.');

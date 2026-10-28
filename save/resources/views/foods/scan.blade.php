@@ -52,9 +52,9 @@
                     </label>
                 </div>
                 <p class="camera-message" data-camera-message role="status" aria-live="polite">JPG, PNG ou WEBP · até 10 MB</p>
-                <div class="privacy-note">Ao pedir a identificação, a imagem será enviada à OpenAI. O SAVE não armazena a foto.</div>
+                <div class="privacy-note">A imagem é processada localmente pelo OpenCV, armazenada temporariamente em área privada e removida após a análise.</div>
                 <button class="button button-identify" type="button" data-analyze disabled>
-                    <span aria-hidden="true">✳</span> Identificar alimentos com IA
+                    <span aria-hidden="true">✳</span> Processar imagem com OpenCV
                 </button>
             </section>
 
@@ -66,13 +66,13 @@
                     </div>
                     <button class="text-button" type="button" data-add-item>+ Adicionar manualmente</button>
                 </div>
-                <p class="results-hint">A estimativa da imagem pode estar incorreta. Ajuste os dados e confirme antes de salvar.</p>
-                <div class="processing-state" data-processing hidden><span class="spinner"></span><span>Analisando a imagem…</span></div>
+                <p class="results-hint">O OpenCV valida a imagem. Até integrar um modelo de reconhecimento, cadastre os alimentos manualmente.</p>
+                <div class="processing-state" data-processing hidden><span class="spinner"></span><span>Processando com OpenCV…</span></div>
                 <div class="notice notice-error" data-error role="alert" hidden></div>
                 <div class="notice notice-success" data-success role="status" hidden></div>
                 <div class="empty-results" data-empty-results>
                     <span class="empty-results-mark" aria-hidden="true">＋</span>
-                    <span>Os alimentos identificados aparecerão aqui.</span>
+                    <span>Após processar a foto, adicione os alimentos manualmente.</span>
                 </div>
                 <div class="item-editor" data-item-editor></div>
                 <button class="button button-save" type="button" data-save-items hidden>Confirmar e salvar na despensa <span aria-hidden="true">→</span></button>

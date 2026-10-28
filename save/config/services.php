@@ -40,4 +40,9 @@ return [
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
     ],
 
+    'opencv' => [
+        'python_binary' => env('PYTHON_BINARY', 'py'),
+        'timeout' => env('OPENCV_PROCESS_TIMEOUT', 30),
+    ],
+
 ];
